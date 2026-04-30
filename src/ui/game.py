@@ -259,8 +259,32 @@ class Game:
         # Multi-agent support: spawn N agents where N = 1 + floor((level-1)/6)
         self.ai_agents = []
         num_agents = 1 + (self.mode2_level - 1) // 6
+
+        # gather walkable candidate positions (exclude start)
+        candidates = [
+            (x, y) for x in range(GRID_W) for y in range(GRID_H)
+            if self.grid_obj.grid[x, y] == 0 and (x, y) != self.grid_obj.start
+        ]
+
         for i in range(num_agents):
-            coord = list(self.grid_obj.goal)
+            if i == 0:
+                # first agent starts at the Goal (original behavior)
+                coord = list(self.grid_obj.goal)
+            else:
+                # pick a spawn position different from the goal and other agents
+                spawn = None
+                for _ in range(50):
+                    if not candidates:
+                        break
+                    choice = random.choice(candidates)
+                    if choice != tuple(self.grid_obj.goal) and all(choice != tuple(a['coord']) for a in self.ai_agents):
+                        spawn = choice
+                        break
+                if spawn is None:
+                    # fallback: first available non-goal candidate or goal if none
+                    spawn = next((c for c in candidates if c != tuple(self.grid_obj.goal)), tuple(self.grid_obj.goal))
+                coord = [spawn[0], spawn[1]]
+
             a_px = coord[0] * CELL_SIZE + CELL_SIZE//2
             a_py = coord[1] * CELL_SIZE + CELL_SIZE//2
             agent = {
@@ -272,8 +296,11 @@ class Game:
             }
             self.ai_agents.append(agent)
 
-        # Base speed is 400ms, decreases by 40ms per level (max fastest is 100ms per tile)
-        self.ai_speed = max(100, 400 - (self.mode2_level - 1) * 40)
+        # Base speed is 400ms, decreases by 40ms per level but must not exceed player's speed
+        # Compute player's per-tile time (ms) from visual smoothing used in run_mode2
+        player_visual_speed = 8  # pixels/frame used for player smoothing in run_mode2
+        player_ms_per_tile = int(CELL_SIZE * 1000 / (player_visual_speed * FPS))
+        self.ai_speed = max(player_ms_per_tile, 400 - (self.mode2_level - 1) * 40)
         self.mode2_status = "PLAYING" # States: PLAYING, WON, LOST
 
     def move_smooth(self, current, target, speed):
