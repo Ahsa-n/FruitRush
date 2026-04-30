@@ -95,8 +95,6 @@ src/
 │   └── train_model.py
 ├── ui/
 │   └── game.py
-├── generate_report.py
-├── generate_project_proposal.py
 └── main.py
 ```
 
