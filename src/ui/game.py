@@ -13,7 +13,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from src.core.grid import Grid
 from src.ai.astar import astar, constraint_astar, get_turning_points
 
-# --- Constants & Colors (Theme: Modern Dark/Neon) ---
 FPS = 60
 CELL_SIZE = 30
 GRID_W = 20
@@ -271,18 +270,37 @@ class Game:
                 # first agent starts at the Goal (original behavior)
                 coord = list(self.grid_obj.goal)
             else:
-                # pick a spawn position different from the goal and other agents
+                # pick a spawn position on the left or bottom side, away from the player, with a valid path
+                side_candidates = [
+                    c for c in candidates
+                    if c != tuple(self.grid_obj.goal)
+                    and all(c != tuple(a['coord']) for a in self.ai_agents)
+                    and (c[0] <= max(1, GRID_W // 3) or c[1] >= GRID_H - max(2, GRID_H // 3))
+                    and (abs(c[0] - self.player_coord[0]) + abs(c[1] - self.player_coord[1]) >= 6)
+                ]
+
                 spawn = None
-                for _ in range(50):
-                    if not candidates:
-                        break
-                    choice = random.choice(candidates)
-                    if choice != tuple(self.grid_obj.goal) and all(choice != tuple(a['coord']) for a in self.ai_agents):
+                for choice in sorted(side_candidates, key=lambda c: abs(c[0] - self.player_coord[0]) + abs(c[1] - self.player_coord[1]), reverse=True):
+                    orig_start = self.grid_obj.start
+                    orig_goal = self.grid_obj.goal
+                    self.grid_obj.start = choice
+                    self.grid_obj.goal = tuple(self.player_coord)
+                    path = astar(self.grid_obj)
+                    self.grid_obj.start = orig_start
+                    self.grid_obj.goal = orig_goal
+                    if path:
                         spawn = choice
                         break
+
                 if spawn is None:
-                    # fallback: first available non-goal candidate or goal if none
-                    spawn = next((c for c in candidates if c != tuple(self.grid_obj.goal)), tuple(self.grid_obj.goal))
+                    # fallback: first valid side candidate or the goal if no side candidate exists
+                    spawn = next(
+                        (c for c in candidates
+                         if c != tuple(self.grid_obj.goal)
+                         and (c[0] <= max(1, GRID_W // 3) or c[1] >= GRID_H - max(2, GRID_H // 3))
+                         and abs(c[0] - self.player_coord[0]) + abs(c[1] - self.player_coord[1]) >= 6),
+                        tuple(self.grid_obj.goal)
+                    )
                 coord = [spawn[0], spawn[1]]
 
             a_px = coord[0] * CELL_SIZE + CELL_SIZE//2
