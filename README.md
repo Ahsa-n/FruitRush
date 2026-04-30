@@ -59,15 +59,6 @@ python -m pip install pygame-ce numpy pandas scikit-learn joblib python-docx
 python src/main.py
 ```
 
-## 🧪 Generate the report
-A Word report can be generated with the included script:
-
-```bash
-python src/generate_report.py
-```
-
-This creates a `.docx` report in the project root.
-
 ## 🎯 Controls
 
 ### Menu
